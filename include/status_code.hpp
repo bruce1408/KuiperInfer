@@ -44,11 +44,12 @@ enum class StatusCode {
   kInferInputsEmpty = 1,
   kInferOutputsEmpty = 2,
   kInferParameterError = 3,
-  kInferInOutDimMismatch = 4,
+  kInferDimMismatch = 4,
 
   kFunctionNotImplement = 5,
-  kParameterMissing = 6,
-  kAttributeMissing = 7,
+  kParseWeightError = 6,
+  kParseParameterError = 7,
+  kParseNullOperator = 8,
 };
 
 }  // namespace kuiper_infer

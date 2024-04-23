@@ -41,6 +41,14 @@ namespace kuiper_infer {
  */
 template <typename T>
 struct RuntimeOperandBase {
+  explicit RuntimeOperandBase() = default;
+
+  explicit RuntimeOperandBase(std::string name, std::vector<int32_t> shapes,
+                              std::vector<std::shared_ptr<Tensor<T>>> datas, RuntimeDataType type)
+      : name(std::move(name)), shapes(std::move(shapes)), datas(std::move(datas)), type(type) {}
+
+  size_t size() const;
+
   /// Name of the operand
   std::string name;
 
@@ -53,6 +61,15 @@ struct RuntimeOperandBase {
   /// Data type of the operand
   RuntimeDataType type = RuntimeDataType::kTypeUnknown;
 };
+
+template <typename T>
+size_t RuntimeOperandBase<T>::size() const {
+  if (shapes.empty()) {
+    return 0;
+  }
+  size_t size = std::accumulate(shapes.begin(), shapes.end(), 1, std::multiplies());
+  return size;
+}
 
 using RuntimeOperand = RuntimeOperandBase<float>;
 

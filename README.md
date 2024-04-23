@@ -16,6 +16,14 @@
 
 **视频课程链接：**[https://space.bilibili.com/1822828582](https://space.bilibili.com/1822828582)
 
+## 对llama的支持
+> 我们将[llama.c](https://github.com/karpathy/llama2.c )中的算子替换为了KuiperInfer中的实现
+
+[模型下载链接](https://pan.baidu.com/s/1PF5KqvIvNFR8yDIY1HmTYA?pwd=ma8r ) 下载后替换到demos/llama2/main.cpp中
+
+
+![a.gif](imgs/a.gif)
+
 ## 第二次课程大纲
 
 第二次课程是第一次课程的重置版，内容更加充实和完善，第一次课程大纲见下方章节。
@@ -31,7 +39,27 @@
 | **第七讲** 表达式层中词法分析和语法分析以及算子的实现 | 完成  | https://www.bilibili.com/video/BV1j8411o7ao |
 | **第八讲** 自制推理框架支持Resnet网络的推理           | 完成  | https://www.bilibili.com/video/BV1o84y1o7ni |
 | **第九讲** 自制推理框架支持YoloV5网络的推理           | 完成  |    https://www.bilibili.com/video/BV1Qk4y1A7XL                                        |
-| **第十讲** 让自制推理框架的执行速度更快一点           | 未完成 |                                             |
+
+## 交流方式
+
+
+
+**AI方向需要跳槽的朋友，可以加下方微信，**
+方向如下：
+* 芯片/半导体
+* AI人工智能
+* 算子开发
+* 大模型框架
+* 嵌入式软件
+* bsp
+
+<img src="imgs/hr.jpg" width="30%" height="30%">
+
+**如果要联系作者本人，请加微信，另外近期我在求一份工作。**
+
+<img src="imgs/me.jpg" width="30%" height="30%">
+
+
 
 ## 知乎专栏（更新中）
 <a href="https://www.zhihu.com/column/c_1682405983161356288"> <img src="https://is1-ssl.mzstatic.com/image/thumb/Purple116/v4/8c/ec/b0/8cecb054-1279-1b92-668b-46e371b9f65f/AppIcon-0-0-1x_U007emarketing-0-0-0-6-0-0-sRGB-0-0-0-GLES2_U002c0-512MB-85-220-0-0.png/1200x630wa.png" height="200" width="400" /> </a>
@@ -94,6 +122,8 @@
 - [sanbuphy](https://github.com/sanbuphy)
 - [TypeFloat](https://github.com/TypeFloat)
 - [Jasmine-up](https://github.com/Jasmine-up)
+- [PerrySkywalker](https://github.com/PerrySkywalker)
+- [delve-wang](https://github.com/delve-wang)
 
 ### 如何参与项目贡献？
 1. 提交代码增加新功能或修改bug；

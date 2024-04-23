@@ -48,7 +48,7 @@ StatusCode AdaptiveAveragePoolingLayer::Forward(
   if (inputs.size() != outputs.size()) {
     LOG(ERROR) << "The input and output tensor array size of the adaptive "
                   "pooling layer do not match";
-    return StatusCode::kInferInOutDimMismatch;
+    return StatusCode::kInferDimMismatch;
   }
 
   if (!output_h_ || !output_w_) {
@@ -101,8 +101,8 @@ StatusCode AdaptiveAveragePoolingLayer::Forward(
       for (uint32_t c = 0; c < input_w - pooling_w + 1; c += stride_w) {
         uint32_t output_col = uint32_t(c / stride_w);
         for (uint32_t r = 0; r < input_h - pooling_h + 1; r += stride_h) {
-          uint32_t output_row = uint32_t(r / stride_h);
           float mean_value = 0.f;
+          uint32_t output_row = uint32_t(r / stride_h);
           float* output_channel_ptr = output_channel.colptr(output_col);
           for (uint32_t w = 0; w < pooling_w; ++w) {
             const float* col_ptr = input_channel.colptr(c + w) + r;
@@ -121,28 +121,35 @@ StatusCode AdaptiveAveragePoolingLayer::Forward(
 
 StatusCode AdaptiveAveragePoolingLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& op,
                                                        std::shared_ptr<Layer<float>>& avg_layer) {
-  CHECK(op != nullptr) << "Adaptive pooling operator is nullptr";
+  if (!op) {
+    LOG(ERROR) << "The adaptive pooling operator parameter in the layer is null pointer.";
+    return StatusCode::kParseNullOperator;
+  }
+
   const auto& params = op->params;
-  CHECK(!params.empty()) << "Operator parameter is empty";
+  if (params.empty()) {
+    LOG(ERROR) << "The operator parameter in the adaptive pooling layer is empty.";
+    return StatusCode::kParseParameterError;
+  }
 
   auto output_size_param =
       std::dynamic_pointer_cast<RuntimeParameterIntArray>(params.at("output_size"));
   if (!output_size_param) {
-    LOG(ERROR) << "Can not find the output size parameter";
-    return StatusCode::kParameterMissing;
+    LOG(ERROR) << "Can not find the output size parameter in the parameter list.";
+    return StatusCode::kParseParameterError;
   }
 
   const auto& output_size_arr = output_size_param->value;
   if (output_size_arr.size() != 2) {
-    LOG(ERROR) << "Can not find the output size parameter";
-    return StatusCode::kParameterMissing;
+    LOG(ERROR) << "The dimension of the output size parameter should be 2.";
+    return StatusCode::kParseParameterError;
   }
   avg_layer =
       std::make_shared<AdaptiveAveragePoolingLayer>(output_size_arr.at(0), output_size_arr.at(1));
   return StatusCode::kSuccess;
 }
 
-LayerRegistererWrapper kAdaptiveAvgpoolingCreateInstance(
-    "nn.AdaptiveAvgPool2d", AdaptiveAveragePoolingLayer::CreateInstance);
+LayerRegistererWrapper kAdaptiveAvgPoolingCreateInstance(
+    AdaptiveAveragePoolingLayer::CreateInstance, "nn.AdaptiveAvgPool2d", "F.adaptive_avg_pool2d");
 
 }  // namespace kuiper_infer

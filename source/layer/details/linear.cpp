@@ -55,7 +55,7 @@ StatusCode LinearLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>
   if (inputs.size() != outputs.size()) {
     LOG(ERROR) << "The input and output tensor array size of the linear "
                   "layer do not match";
-    return StatusCode::kInferInOutDimMismatch;
+    return StatusCode::kInferDimMismatch;
   }
 
   if (this->weights_.empty()) {
@@ -93,28 +93,25 @@ StatusCode LinearLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>
     const uint32_t feature_dims = input_shapes.at(1);
     const uint32_t in_features = input_shapes.at(2);
     CHECK(weight_data.n_rows == out_features_)
-        << "The row of weight tensor should be same to output_features_";
+        << "The row of weight tensor should be same to output features.";
     CHECK(weight_data.n_cols == in_features && in_features == in_features_)
-        << "The col of weight tensor should be same to input_features_";
+        << "The col of weight tensor should be same to input features.";
 
-    arma::fmat input_vec((float*)input->raw_ptr(), feature_dims, in_features_, false, true);
+    arma::fmat input_vec(input->raw_ptr(), feature_dims, in_features_, false, true);
     std::shared_ptr<Tensor<float>> output = outputs.at(i);
     if (output == nullptr || output->empty()) {
       output = std::make_shared<Tensor<float>>(1, out_features_, feature_dims);
       outputs.at(i) = output;
     }
 
-    CHECK(output->channels() == 1 && output->rows() == feature_dims &&
-          output->cols() == out_features_)
-        << "The row of output tensor should be same to feature_dims_ and the "
-           "col of output tensor should be same to output_features_ "
-        << i << " th";
-
     const auto& output_raw_shapes = output->raw_shapes();
     if (output_raw_shapes.size() == 2) {
-      CHECK(output_raw_shapes.at(0) == feature_dims && output_raw_shapes.at(1) == out_features_);
+      CHECK(output_raw_shapes.at(0) == feature_dims && output_raw_shapes.at(1) == out_features_)
+          << "The row of output tensor should be same to feature dims and the "
+             "col of output tensor should be same to output features.";
     } else if (output_raw_shapes.size() == 1) {
-      CHECK(output_raw_shapes.at(0) == out_features_);
+      CHECK(output_raw_shapes.at(0) == out_features_)
+          << "The row of output tensor should be same to feature dims.";
     } else {
       LOG(FATAL) << "The shape of output tensor need be equal to one or two";
     }
@@ -123,16 +120,12 @@ StatusCode LinearLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>
     result = input_vec * weight_data_t;
     if (use_bias_) {
       CHECK(!this->bias_.empty() && this->bias_.size() == 1)
-          << "The bias tensor is empty, but use_bias is true";
+          << "The bias tensor is empty, but \"use bias\" is true";
 
       const auto& bias_data = bias_.front()->data();
       CHECK(!bias_data.empty() && bias_data.n_slices == 1 && bias_data.n_cols == out_features_)
-          << "The col of bias tensor is not same to output_features_";
-      const auto& bias_tensor = bias_data.slice(0);
-#pragma omp parallel for
-      for (uint32_t row = 0; row < result.n_rows; ++row) {
-        result.row(row) += bias_tensor;
-      }
+          << "The col of bias tensor is not same to output features";
+      result.each_row() += bias_data.slice(0);
     }
   }
   return StatusCode::kSuccess;
@@ -140,30 +133,42 @@ StatusCode LinearLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>
 
 StatusCode LinearLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& op,
                                        std::shared_ptr<Layer<float>>& linear_layer) {
-  CHECK(op != nullptr) << "Linear operator is nullptr";
+  if (!op) {
+    LOG(ERROR) << "The linear operator parameter in the layer is null pointer.";
+    return StatusCode::kParseNullOperator;
+  }
+
   const auto& params = op->params;
-  if (params.find("bias") == params.end()) {
-    LOG(ERROR) << "Can not find the use bias parameter";
-    return StatusCode::kParameterMissing;
+  if (params.empty()) {
+    LOG(ERROR) << "The operator parameter in the linear layer is empty.";
+    return StatusCode::kParseParameterError;
+  }
+
+  if (!op->has_parameter("bias")) {
+    LOG(ERROR) << "Can not find the use bias parameter in the parameter list.";
+    return StatusCode::kParseParameterError;
   }
   auto use_bias_param = std::dynamic_pointer_cast<RuntimeParameterBool>(params.at("bias"));
   if (use_bias_param == nullptr) {
-    LOG(ERROR) << "Can not find the use bias parameter";
-    return StatusCode::kParameterMissing;
+    LOG(ERROR) << "Can not find the use bias parameter in the parameter list.";
+    return StatusCode::kParseParameterError;
   }
 
   const auto& attr = op->attribute;
-  CHECK(!attr.empty()) << "Operator attributes is empty";
+  if (attr.empty()) {
+    LOG_IF(ERROR, attr.empty()) << "The attributes of the operator is empty.";
+    return StatusCode::kParseWeightError;
+  }
 
-  if (attr.find("weight") == attr.end()) {
-    LOG(ERROR) << "Can not find the weight parameter";
-    return StatusCode::kAttributeMissing;
+  if (!op->has_attribute("weight")) {
+    LOG(ERROR) << "Can not find the weight parameter in the parameter list.";
+    return StatusCode::kParseWeightError;
   }
 
   if (use_bias_param->value) {
-    if (attr.find("bias") == attr.end()) {
-      LOG(ERROR) << "Can not find the bias parameter";
-      return StatusCode::kAttributeMissing;
+    if (!op->has_attribute("bias")) {
+      LOG(ERROR) << "Can not find the bias parameter in the parameter list.";
+      return StatusCode::kParseWeightError;
     }
   }
 
@@ -171,8 +176,8 @@ StatusCode LinearLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& o
   const auto& bias = attr.at("bias");
   const auto& shapes = weight->shape;
   if ((shapes.size() < 2)) {
-    LOG(ERROR) << "The graph only support two dimension matrix multiply";
-    return StatusCode::kAttributeMissing;
+    LOG(ERROR) << "The dimension of the linear weight parameter should be 2.";
+    return StatusCode::kParseWeightError;
   }
 
   int32_t out_features = shapes.at(0);
@@ -189,6 +194,6 @@ StatusCode LinearLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& o
   return StatusCode::kSuccess;
 }
 
-LayerRegistererWrapper kLinearCreateInstance("nn.Linear", LinearLayer::CreateInstance);
+LayerRegistererWrapper kLinearCreateInstance(LinearLayer::CreateInstance, "nn.Linear");
 
 }  // namespace kuiper_infer

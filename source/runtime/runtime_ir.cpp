@@ -41,6 +41,8 @@ const std::string& RuntimeGraph::param_path() const { return this->param_path_; 
 
 const std::string& RuntimeGraph::bin_path() const { return this->bin_path_; }
 
+static bool IsQuantizeOp(const pnnx::Operator* op) { return false; }
+
 bool RuntimeGraph::Init() {
   if (this->bin_path_.empty() || this->param_path_.empty()) {
     LOG(ERROR) << "The bin path or param path is empty";
@@ -60,41 +62,34 @@ bool RuntimeGraph::Init() {
     return false;
   }
 
-  this->operators_.clear();
+  operators_.clear();
   for (const pnnx::Operator* op : operators) {
     if (!op) {
-      LOG(ERROR) << "Meet the empty node";
+      LOG(ERROR) << "Meet the empty node in the model";
       continue;
     } else {
-      std::shared_ptr<RuntimeOperator> runtime_operator = std::make_shared<RuntimeOperator>();
-      // 初始化算子的名称
-      runtime_operator->name = op->name;
-      runtime_operator->type = op->type;
+      if (!IsQuantizeOp(op)) {
+        std::shared_ptr<RuntimeOperator> runtime_operator = std::make_shared<RuntimeOperator>();
+        // 初始化算子的名称
+        runtime_operator->name = op->name;
+        runtime_operator->type = op->type;
 
-      // 初始化算子中的input
-      const std::vector<pnnx::Operand*>& inputs = op->inputs;
-      if (!inputs.empty()) {
-        InitGraphOperatorsInput(inputs, runtime_operator);
-      }
+        // 初始化算子中的input
+        InitGraphOperatorsInput(op->inputs, runtime_operator);
 
-      // 记录输出operand中的名称
-      const std::vector<pnnx::Operand*>& outputs = op->outputs;
-      if (!outputs.empty()) {
-        InitGraphOperatorsOutput(outputs, runtime_operator);
-      }
+        // 记录输出operand中的名称
+        InitGraphOperatorsOutput(op->outputs, runtime_operator);
 
-      // 初始化算子中的attribute(权重)
-      const std::map<std::string, pnnx::Attribute>& attrs = op->attrs;
-      if (!attrs.empty()) {
-        InitGraphAttrs(attrs, runtime_operator);
-      }
+        // 初始化算子中的attribute(权重)
+        InitGraphAttrs(op->attrs, runtime_operator);
 
-      // 初始化算子中的parameter
-      const std::map<std::string, pnnx::Parameter>& params = op->params;
-      if (!params.empty()) {
-        InitGraphParams(params, runtime_operator);
+        // 初始化算子中的parameter
+        InitGraphParams(op->params, runtime_operator);
+        this->operators_.push_back(runtime_operator);
+      } else {
+        LOG(FATAL) << "UnSupported quantize operator in the model " << op->name
+                   << " type: " << op->type;
       }
-      this->operators_.push_back(runtime_operator);
     }
   }
 
@@ -110,7 +105,7 @@ void RuntimeGraph::Build() {
 
   if (graph_state_ == GraphState::NeedInit) {
     bool init_graph = Init();
-    LOG_IF(FATAL, !init_graph) << "Init graph failed!";
+    LOG_IF(FATAL, !init_graph || graph_state_ == GraphState::NeedInit) << "Init graph failed!";
   }
 
   CHECK(graph_state_ >= GraphState::NeedBuild)
@@ -134,25 +129,35 @@ void RuntimeGraph::Build() {
   }
 }
 
+template <typename T>
+StatusCode ExecuteLayer(const std::shared_ptr<Layer<T>>& layer, const std::string& op_name,
+                        const std::string& op_type, bool is_debug) {
+  CHECK(layer != nullptr);
+  StatusCode status;
+  if (is_debug) {
+    utils::LayerTimeLogging layer_time_logging(op_name, op_type);
+    status = layer->Forward();
+  } else {
+    status = layer->Forward();
+  }
+  return status;
+}
+
 void RuntimeGraph::Forward(bool debug) {
-  using namespace utils;
   // 检查当前的执行图是否已经初始化完毕
   if (graph_state_ < GraphState::Complete) {
-    LOG(FATAL) << "Graph need be build!";
-  }
-  CHECK(graph_state_ == GraphState::Complete)
-      << "Graph status error, current state is " << int32_t(graph_state_);
-
-  for (const auto& op : operators_) {
-    op->has_forward = false;
-    CHECK_GT(op->forward_index, 0);
+    LOG(FATAL) << "Graph need be build!"
+               << ", current state is " << int32_t(graph_state_);
   }
 
   if (debug) {
-    LayerTimeStatesSingleton::LayerTimeStatesCollectorInit();
+    utils::LayerTimeStatesSingleton::LayerTimeStatesCollectorInit();
   }
 
   for (const auto& current_op : operators_) {
+    current_op->has_forward = false;
+    CHECK_GT(current_op->start_time, 0);
+
     if (is_input_op(current_op->name) || is_output_op(current_op->name)) {
       current_op->has_forward = true;
       continue;
@@ -162,25 +167,17 @@ void RuntimeGraph::Forward(bool debug) {
         << "The layer corresponding to the op " << current_op->name
         << " is empty, indicating that it may not have been created.";
 
-    StatusCode status;
-    std::shared_ptr<Layer<float>> layer = current_op->layer;
-    if (debug) {
-      {
-        LayerTimeLogging layer_time_logging(current_op->name, current_op->type);
-        status = layer->Forward();
-      }
-    } else {
-      status = layer->Forward();
-    }
+    StatusCode status = ExecuteLayer(current_op->layer, current_op->name, current_op->type, debug);
     CHECK(status == StatusCode::kSuccess)
-        << layer->layer_name() << " layer forward failed, error code: " << int32_t(status);
+        << current_op->layer->layer_name()
+        << " layer forward failed, error code: " << int32_t(status);
 
     current_op->has_forward = true;
-    ProbeNextLayer(current_op, current_op->output_operands->datas);
+    PropagateLayerOutputs(current_op, current_op->output_operands->datas);
   }
 
   if (debug) {
-    LayerTimeLogging::SummaryLogging();
+    utils::LayerTimeLogging::SummaryLogging();
   }
 
   for (const auto& op : operators_) {
@@ -188,52 +185,66 @@ void RuntimeGraph::Forward(bool debug) {
   }
 }
 
-std::shared_ptr<Layer<float>> RuntimeGraph::CreateLayer(
-    const std::shared_ptr<RuntimeOperator>& op) {
+template <typename T>
+std::shared_ptr<Layer<T>> RuntimeGraph::CreateLayer(
+    const std::shared_ptr<RuntimeOperatorBase<T>>& op) {
   LOG_IF(FATAL, !op) << "Operator is empty!";
   auto layer = LayerRegisterer::CreateLayer(op);
   LOG_IF(FATAL, !layer) << "Layer init failed " << op->type;
   return layer;
 }
 
+template <typename T>
 void RuntimeGraph::InitGraphOperatorsInput(
     const std::vector<pnnx::Operand*>& inputs,
-    const std::shared_ptr<RuntimeOperator>& runtime_operator) {
+    const std::shared_ptr<RuntimeOperatorBase<T>>& runtime_operator) {
+  if (inputs.empty()) {
+    return;
+  }
+  CHECK(runtime_operator != nullptr) << "The runtime operator is null pointer";
   for (const pnnx::Operand* input : inputs) {
     if (!input) {
       continue;
     }
-    const pnnx::Operator* producer = input->producer;
-    std::shared_ptr<RuntimeOperand> runtime_operand = std::make_shared<RuntimeOperand>();
 
-    runtime_operand->name = producer->name;
+    std::vector<int32_t> dims;
+    const pnnx::Operator* producer = input->producer;
+
     for (int32_t dim : input->shape) {
-      runtime_operand->shapes.push_back(dim);
+      dims.push_back(dim);
     }
-    CHECK(!runtime_operand->shapes.empty());
+    CHECK(!dims.empty());
+    std::shared_ptr<RuntimeOperandBase<T>> runtime_operand =
+        std::make_shared<RuntimeOperandBase<T>>();
+    runtime_operand->name = producer->name;
+    runtime_operand->shapes = dims;
+    runtime_operator->input_operands.insert({producer->name, runtime_operand});
+    runtime_operator->input_operands_seq.push_back(runtime_operand);
 
     switch (input->type) {
       case 1: {
         runtime_operand->type = RuntimeDataType::kTypeFloat32;
         break;
       }
-      case 0: {
-        runtime_operand->type = RuntimeDataType::kTypeUnknown;
+      case 7: {
+        runtime_operand->type = RuntimeDataType::kTypeInt8;
         break;
       }
       default: {
         LOG(FATAL) << "Unknown input operand type: " << input->type;
       }
     }
-
-    runtime_operator->input_operands.insert({producer->name, runtime_operand});
-    runtime_operator->input_operands_seq.push_back(runtime_operand);
   }
 }
 
+template <typename T>
 void RuntimeGraph::InitGraphOperatorsOutput(
     const std::vector<pnnx::Operand*>& outputs,
-    const std::shared_ptr<RuntimeOperator>& runtime_operator) {
+    const std::shared_ptr<RuntimeOperatorBase<T>>& runtime_operator) {
+  if (outputs.empty()) {
+    return;
+  }
+  CHECK(runtime_operator != nullptr) << "The runtime operator is null pointer";
   for (const pnnx::Operand* output : outputs) {
     if (!output) {
       continue;
@@ -245,8 +256,14 @@ void RuntimeGraph::InitGraphOperatorsOutput(
   }
 }
 
-void RuntimeGraph::InitGraphParams(const std::map<std::string, pnnx::Parameter>& params,
-                                   const std::shared_ptr<RuntimeOperator>& runtime_operator) {
+template <typename T>
+void RuntimeGraph::InitGraphParams(
+    const std::map<std::string, pnnx::Parameter>& params,
+    const std::shared_ptr<RuntimeOperatorBase<T>>& runtime_operator) {
+  if (params.empty()) {
+    return;
+  }
+  CHECK(runtime_operator != nullptr) << "The runtime operator is null pointer";
   for (const auto& [name, parameter] : params) {
     const int32_t type = parameter.type;
     switch (type) {
@@ -310,15 +327,18 @@ void RuntimeGraph::InitGraphParams(const std::map<std::string, pnnx::Parameter>&
   }
 }
 
+template <typename T>
 void RuntimeGraph::InitGraphAttrs(const std::map<std::string, pnnx::Attribute>& attrs,
-                                  const std::shared_ptr<RuntimeOperator>& runtime_operator) {
+                                  const std::shared_ptr<RuntimeOperatorBase<T>>& runtime_operator) {
+  if (attrs.empty()) {
+    return;
+  }
+  CHECK(runtime_operator != nullptr) << "The runtime operator is null pointer";
   for (const auto& [name, attr] : attrs) {
     switch (attr.type) {
       case 1: {
-        std::shared_ptr<RuntimeAttribute> runtime_attribute = std::make_shared<RuntimeAttribute>();
-        runtime_attribute->type = RuntimeDataType::kTypeFloat32;
-        runtime_attribute->weight_data = attr.data;
-        runtime_attribute->shape = attr.shape;
+        std::shared_ptr<RuntimeAttribute> runtime_attribute = std::make_shared<RuntimeAttribute>(
+            attr.shape, RuntimeDataType::kTypeFloat32, attr.data);
         runtime_operator->attribute.insert({name, runtime_attribute});
         break;
       }
@@ -329,20 +349,21 @@ void RuntimeGraph::InitGraphAttrs(const std::map<std::string, pnnx::Attribute>& 
   }
 }
 
-void RuntimeGraph::ProbeNextLayer(const std::shared_ptr<RuntimeOperator>& current_op,
-                                  const std::vector<sftensor>& layer_output_datas) {
+template <typename T>
+void RuntimeGraph::PropagateLayerOutputs(
+    const std::shared_ptr<RuntimeOperatorBase<T>>& current_op,
+    const std::vector<std::shared_ptr<Tensor<T>>>& layer_output_datas) {
   // For each next operator of current operator
-  const auto& next_ops = current_op->output_operators;
-  for (const auto& [_, next_op] : next_ops) {
+  for (const auto& [_, output_op] : current_op->output_operators) {
     // Get next op's input operands corresponding to current op's output
-    const auto& next_input_operands = next_op->input_operands;
+    const auto& next_input_operands = output_op->input_operands;
     const auto& next_input_op_iter = next_input_operands.find(current_op->name);
     if (next_input_op_iter != next_input_operands.end()) {
       // Get input data spaces for those operands
-      std::vector<sftensor>& next_input_datas = next_input_op_iter->second->datas;
+      std::vector<stensor<T>>& next_input_datas = next_input_op_iter->second->datas;
       // Copy current op output data to next op input data
       for (uint32_t i = 0; i < next_input_datas.size(); ++i) {
-        sftensor layer_output_data = layer_output_datas.at(i);
+        const stensor<T>& layer_output_data = layer_output_datas.at(i);
         if (next_input_datas.at(i) != nullptr) {
           CHECK(next_input_datas.at(i)->shapes() == layer_output_data->shapes());
         }
@@ -354,28 +375,50 @@ void RuntimeGraph::ProbeNextLayer(const std::shared_ptr<RuntimeOperator>& curren
 
 void RuntimeGraph::ReverseTopoSort() {
   // 构建拓扑顺序
-  start_forward_index_ = 0;
   for (const auto& op : operators_) {
     // 根据输入节点构建拓扑排序
-    if (!op->has_forward) {
-      this->ReverseTopoSort_(op);
+    if (op != nullptr && !op->has_forward) {
+      int32_t current_forward_idx = 0;
+      this->ReverseTopoSortInternal(op, current_forward_idx);
     }
   }
 
   // 根据拓扑顺序调整算子的执行顺序
   std::sort(operators_.begin(), operators_.end(), [](const auto& op1, const auto& op2) {
-    return op1->forward_index > op2->forward_index;
+    return op1->start_time > op2->start_time;
   });
 
   int32_t forward_index = 1;
   for (const auto& op : operators_) {
-    op->forward_index = forward_index;
+    op->start_time = forward_index;
     forward_index += 1;
+  }
+
+  for (const auto& op : operators_) {
+    const auto& next_ops = op->output_operators;
+    int32_t last_forward_index = -1;
+    for (const auto& [_, next_op] : next_ops) {
+      if (next_op->start_time >= last_forward_index) {
+        last_forward_index = next_op->start_time;
+      }
+    }
+
+    if (last_forward_index == -1) {
+      op->end_time = op->start_time + 1;
+    } else {
+      op->end_time = last_forward_index;
+    }
+    op->occur_end_time = -1;
   }
 }
 
-void RuntimeGraph::ReverseTopoSort_(const std::shared_ptr<RuntimeOperator>& root_op) {
-  CHECK(root_op != nullptr) << "current operator is nullptr";
+template <typename T>
+void RuntimeGraph::ReverseTopoSortInternal(const std::shared_ptr<RuntimeOperatorBase<T>>& root_op,
+                                           int32_t& current_forward_idx) {
+  if (!root_op) {
+    LOG(INFO) << "Current operator is nullptr";
+    return;
+  }
   if (root_op->input_operands.empty() && !root_op->has_forward) {
     this->input_ops_.push_back(root_op);
   }
@@ -386,18 +429,16 @@ void RuntimeGraph::ReverseTopoSort_(const std::shared_ptr<RuntimeOperator>& root
   root_op->has_forward = true;
   const auto& next_ops = root_op->output_operators;
   for (const auto& [_, op] : next_ops) {
-    if (op != nullptr) {
-      if (!op->has_forward) {
-        this->ReverseTopoSort_(op);
-      }
+    if (op != nullptr && !op->has_forward) {
+      this->ReverseTopoSortInternal(op, current_forward_idx);
     }
   }
 
   for (const auto& [_, op] : next_ops) {
     CHECK_EQ(op->has_forward, true);
   }
-  root_op->forward_index = start_forward_index_;
-  start_forward_index_ += 1;
+  root_op->start_time = current_forward_idx;
+  current_forward_idx += 1;
 }
 
 void RuntimeGraph::CreateNodeRelation() {
@@ -414,7 +455,7 @@ void RuntimeGraph::CreateNodeRelation() {
     }
     // 除了输入和输出节点，都创建layer
     if (current_op->type != "pnnx.Input" && current_op->type != "pnnx.Output") {
-      std::shared_ptr<Layer<float>> layer = RuntimeGraph::CreateLayer(current_op);
+      auto layer = RuntimeGraph::CreateLayer(current_op);
       if (layer) {
         current_op->layer = layer;
         layer->set_runtime_operator(current_op);
@@ -437,7 +478,7 @@ void RuntimeGraph::set_inputs(const std::string& input_name, const std::vector<s
     }
   }
   CHECK(input_op != nullptr) << "Can not find the input operator: " << input_name;
-  ProbeNextLayer(input_op, inputs);
+  PropagateLayerOutputs(input_op, inputs);
 }
 
 std::vector<sftensor> RuntimeGraph::get_outputs(const std::string& output_name) const {
@@ -450,12 +491,12 @@ std::vector<sftensor> RuntimeGraph::get_outputs(const std::string& output_name) 
   }
 
   CHECK(output_op != nullptr) << "Can not find the output operator: " << output_name;
-  CHECK(output_op->input_operands_seq.size() == 1)
-      << "KuiperInfer only supports one output per operator.";
-
-  output_op->output_operands = output_op->input_operands_seq.front();
-  CHECK(output_op->output_operands != nullptr) << "Output from " << output_op->name << " is empty";
-  return output_op->output_operands->datas;
+  std::vector<sftensor> outputs;
+  for (const auto& input_operand : output_op->input_operands_seq) {
+    std::copy(input_operand->datas.begin(), input_operand->datas.end(),
+              std::back_inserter(outputs));
+  }
+  return outputs;
 }
 
 bool RuntimeGraph::is_input_op(const std::string& op_name) const {

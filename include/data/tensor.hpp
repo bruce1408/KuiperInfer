@@ -33,6 +33,14 @@ namespace kuiper_infer {
 template <typename T>
 class Tensor {
  public:
+  explicit Tensor(T* raw_ptr, uint32_t size);
+
+  explicit Tensor(T* raw_ptr, uint32_t rows, uint32_t cols);
+
+  explicit Tensor(T* raw_ptr, uint32_t channels, uint32_t rows, uint32_t cols);
+
+  explicit Tensor(T* raw_ptr, const std::vector<uint32_t>& shapes);
+
   /**
    * @brief Construct a new empty Tensor
    */
@@ -97,19 +105,14 @@ class Tensor {
    */
   size_t size() const;
 
+  size_t plane_size() const;
+
   /**
    * @brief Sets the tensor data
    *
    * @param data Data to set
    */
   void set_data(const arma::Cube<T>& data);
-
-  /**
-   * @brief Sets the tensor data by moving
-   *
-   * @param data Data to set
-   */
-  void set_data(arma::Cube<T>&& data);
 
   /**
    * @brief Checks if tensor is empty
@@ -119,20 +122,20 @@ class Tensor {
   bool empty() const;
 
   /**
-   * @brief Gets element at offset
-   *
-   * @param offset Element offset
-   * @return Element value
-   */
-  T index(uint32_t offset) const;
-
-  /**
    * @brief Gets element reference at offset
    *
    * @param offset Element offset
    * @return Element reference
    */
   T& index(uint32_t offset);
+
+  /**
+   * @brief Gets element at offset
+   *
+   * @param offset Element offset
+   * @return Element value
+   */
+  const T index(uint32_t offset) const;
 
   /**
    * @brief Gets tensor shape
@@ -186,7 +189,7 @@ class Tensor {
    * @param col Column index
    * @return Element at location
    */
-  T at(uint32_t channel, uint32_t row, uint32_t col) const;
+  const T at(uint32_t channel, uint32_t row, uint32_t col) const;
 
   /**
    * @brief Gets element reference at location
@@ -285,6 +288,13 @@ class Tensor {
   T* raw_ptr();
 
   /**
+   * @brief Gets raw data pointer
+   *
+   * @return Raw data pointer
+   */
+  const T* raw_ptr() const;
+
+  /**
    * @brief Gets raw data pointer with offset
    *
    * @param offset Offset
@@ -293,12 +303,28 @@ class Tensor {
   T* raw_ptr(size_t offset);
 
   /**
+   * @brief Gets raw data pointer with offset
+   *
+   * @param offset Offset
+   * @return Raw pointer + offset
+   */
+  const T* raw_ptr(size_t offset) const;
+
+  /**
    * @brief Gets matrix raw pointer
    *
    * @param index Matrix index
    * @return Raw pointer to matrix
    */
   T* matrix_raw_ptr(uint32_t index);
+
+  /**
+   * @brief Gets matrix raw pointer
+   *
+   * @param index Matrix index
+   * @return Raw pointer to matrix
+   */
+  const T* matrix_raw_ptr(uint32_t index) const;
 
  private:
   /**
@@ -314,6 +340,9 @@ class Tensor {
   /// Tensor data
   arma::Cube<T> data_;
 };
+
+template <typename T = float>
+using stensor = std::shared_ptr<Tensor<T>>;
 
 using ftensor = Tensor<float>;
 using sftensor = std::shared_ptr<Tensor<float>>;

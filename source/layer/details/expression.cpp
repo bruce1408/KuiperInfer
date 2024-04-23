@@ -32,6 +32,10 @@ ExpressionLayer::ExpressionLayer(std::string statement)
   parser_ = std::make_unique<ExpressionParser>(statement_);
 }
 
+bool ExpressionLayer::TokenIsOperator(Token token) const {
+  return token.token_type == TokenType::TokenAdd || token.token_type == TokenType::TokenMul;
+}
+
 StatusCode ExpressionLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                                     std::vector<std::shared_ptr<Tensor<float>>>& outputs) {
   if (inputs.empty()) {
@@ -47,8 +51,8 @@ StatusCode ExpressionLayer::Forward(const std::vector<std::shared_ptr<Tensor<flo
   CHECK(this->parser_ != nullptr) << "The parser in the expression layer is null!";
   this->parser_->Tokenizer(false);
   const auto& tokens = this->parser_->tokens();
-  const auto& token_strs = this->parser_->token_strs();
-  CHECK(!tokens.empty() && !token_strs.empty())
+  const auto& token_str_array = this->parser_->token_str_array();
+  CHECK(!tokens.empty() && !token_str_array.empty())
       << "The expression parser failed to parse " << statement_;
 
   const uint32_t batch_size = outputs.size();
@@ -57,7 +61,7 @@ StatusCode ExpressionLayer::Forward(const std::vector<std::shared_ptr<Tensor<flo
     const auto& current_token = *iter;
     // 如果是数据类型，就将对应分支的input插入到栈中
     if (current_token.token_type == TokenType::TokenInputNumber) {
-      std::string str_number = *(token_strs.rbegin() + std::distance(tokens.rbegin(), iter));
+      std::string str_number = *(token_str_array.rbegin() + std::distance(tokens.rbegin(), iter));
       str_number.erase(str_number.begin());
 
       int32_t input_branch = std::stoi(str_number);
@@ -70,17 +74,18 @@ StatusCode ExpressionLayer::Forward(const std::vector<std::shared_ptr<Tensor<flo
         input_token_nodes.push_back(inputs.at(i + input_start_pos));
       }
       op_stack.push(input_token_nodes);
-    } else if (current_token.token_type == TokenType::TokenAdd ||
-               current_token.token_type == TokenType::TokenMul) {
+    } else if (TokenIsOperator(current_token)) {
       // process operation
       CHECK(op_stack.size() >= 2) << "The number of operand is less than two";
-      std::vector<std::shared_ptr<Tensor<float>>> input_node1 = op_stack.top();
+      std::shared_ptr<Tensor<float>> (*function)(const std::shared_ptr<Tensor<float>>& tensor1,
+                                                 const std::shared_ptr<Tensor<float>>& tensor2);
+      std::vector<std::shared_ptr<Tensor<float>>> input_node1(std::move(op_stack.top()));
       CHECK(input_node1.size() == batch_size)
           << "The first operand doesn't have appropriate number of tensors, "
              "which need "
           << batch_size;
       op_stack.pop();
-      std::vector<std::shared_ptr<Tensor<float>>> input_node2 = op_stack.top();
+      std::vector<std::shared_ptr<Tensor<float>>> input_node2(std::move(op_stack.top()));
       CHECK(input_node2.size() == batch_size)
           << "The second operand doesn't have appropriate number of tensors, "
              "which need "
@@ -89,24 +94,22 @@ StatusCode ExpressionLayer::Forward(const std::vector<std::shared_ptr<Tensor<flo
 
       std::vector<std::shared_ptr<Tensor<float>>> output_token_nodes(batch_size);
       if (current_token.token_type == TokenType::TokenAdd) {
-#pragma omp parallel for num_threads(batch_size)
-        for (uint32_t i = 0; i < batch_size; ++i) {
-          output_token_nodes.at(i) = TensorElementAdd(input_node1.at(i), input_node2.at(i));
-        }
+        function = TensorElementAdd;
+      } else if (current_token.token_type == TokenType::TokenMul) {
+        function = TensorElementMultiply;
       } else {
+        LOG(FATAL) << "Unsupported operator type in the expression layer: "
+                   << int(current_token.token_type);
+      }
 #pragma omp parallel for num_threads(batch_size)
-        for (uint32_t i = 0; i < batch_size; ++i) {
-          output_token_nodes.at(i) = TensorElementMultiply(input_node1.at(i), input_node2.at(i));
-        }
+      for (uint32_t i = 0; i < batch_size; ++i) {
+        output_token_nodes.at(i) = function(input_node1.at(i), input_node2.at(i));
       }
       op_stack.push(output_token_nodes);
-    } else {
-      continue;
     }
   }
   CHECK(op_stack.size() == 1) << "The expression has more than one output operand!";
   std::vector<sftensor> output_node = op_stack.top();
-  op_stack.pop();
   for (uint32_t i = 0; i < batch_size; ++i) {
     if (outputs.at(i) != nullptr && !outputs.at(i)->empty()) {
       CHECK(outputs.at(i)->shapes() == output_node.at(i)->shapes());
@@ -118,26 +121,35 @@ StatusCode ExpressionLayer::Forward(const std::vector<std::shared_ptr<Tensor<flo
 
 StatusCode ExpressionLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& op,
                                            std::shared_ptr<Layer<float>>& expression_layer) {
-  CHECK(op != nullptr) << "Expression operator is nullptr";
+  if (!op) {
+    LOG(ERROR) << "The expression operator parameter in the layer is null pointer.";
+    return StatusCode::kParseNullOperator;
+  }
+
   const auto& params = op->params;
+  if (params.empty()) {
+    LOG(ERROR) << "The operator parameter in the expression layer is empty.";
+    return StatusCode::kParseParameterError;
+  }
+
   if (params.find("expr") == params.end()) {
-    return StatusCode::kParameterMissing;
+    return StatusCode::kParseParameterError;
   }
 
   auto statement_param = std::dynamic_pointer_cast<RuntimeParameterString>(params.at("expr"));
   if (statement_param == nullptr) {
     LOG(ERROR) << "Can not find the expression parameter";
-    return StatusCode::kParameterMissing;
+    return StatusCode::kParseParameterError;
   }
   if (statement_param->type != RuntimeParameterType::kParameterString) {
     LOG(ERROR) << "Can not find the expression parameter";
-    return StatusCode::kParameterMissing;
+    return StatusCode::kParseParameterError;
   }
 
   expression_layer = std::make_shared<ExpressionLayer>(statement_param->value);
   return StatusCode::kSuccess;
 }
 
-LayerRegistererWrapper kExpressionCreateInstance("pnnx.Expression",
-                                                 ExpressionLayer::CreateInstance);
+LayerRegistererWrapper kExpressionCreateInstance(ExpressionLayer::CreateInstance,
+                                                 "pnnx.Expression");
 }  // namespace kuiper_infer

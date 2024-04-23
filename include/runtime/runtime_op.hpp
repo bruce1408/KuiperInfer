@@ -25,6 +25,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -49,7 +50,11 @@ class Layer;
 template <typename T>
 struct RuntimeOperatorBase {
   /// Execution order index of this operator
-  int32_t forward_index = -1;
+  int32_t start_time = -1;
+
+  int32_t end_time = -1;
+
+  int32_t occur_end_time = -1;
 
   /// Whether this operator has run in current execution
   bool has_forward = false;
@@ -83,7 +88,34 @@ struct RuntimeOperatorBase {
 
   /// Operator attributes like weights
   std::map<std::string, std::shared_ptr<RuntimeAttribute>> attribute;
+
+  bool has_parameter(const std::string& param_name);
+
+  bool has_attribute(const std::string& attr_name);
 };
+
+template <typename T>
+bool RuntimeOperatorBase<T>::has_attribute(const std::string& attr_name) {
+  if (this->attribute.empty()) {
+    return false;
+  }
+  if (this->attribute.find(attr_name) == this->attribute.end()) {
+    return false;
+  }
+  return true;
+}
+
+template <typename T>
+bool RuntimeOperatorBase<T>::has_parameter(const std::string& param_name) {
+  if (this->params.empty()) {
+    return false;
+  }
+  if (this->params.find(param_name) == this->params.end()) {
+    return false;
+  } else {
+    return true;
+  }
+}
 
 using RuntimeOperator = RuntimeOperatorBase<float>;
 

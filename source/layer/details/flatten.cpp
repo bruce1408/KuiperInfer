@@ -44,7 +44,7 @@ StatusCode FlattenLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>
   if (inputs.size() != outputs.size()) {
     LOG(ERROR) << "The input and output tensor array size of the flatten "
                   "layer do not match";
-    return StatusCode::kInferInOutDimMismatch;
+    return StatusCode::kInferDimMismatch;
   }
 
   int32_t start_dim = start_dim_;
@@ -58,9 +58,15 @@ StatusCode FlattenLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>
     end_dim = total_dims + end_dim;
   }
 
-  CHECK(end_dim > start_dim) << "The end dim must greater than start dim";
-  CHECK(end_dim <= 3 && start_dim >= 1)
-      << "The end dim must less than two and start dim must greater than zero";
+  if (end_dim <= start_dim) {
+    LOG(ERROR) << "The end dim must greater than start dim";
+    return StatusCode::kInferParameterError;
+  }
+
+  if (end_dim > 3 || start_dim < 1) {
+    LOG(ERROR) << "The end dim must less than two and start dim must greater than zero";
+    return StatusCode::kInferParameterError;
+  }
 
   const uint32_t batch_size = inputs.size();
   for (uint32_t i = 0; i < batch_size; ++i) {
@@ -102,31 +108,39 @@ StatusCode FlattenLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>
 
 StatusCode FlattenLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& op,
                                         std::shared_ptr<Layer<float>>& flatten_layer) {
-  CHECK(op != nullptr) << "Flatten operator is nullptr";
-  const auto& params = op->params;
-
-  if (params.find("end_dim") == params.end()) {
-    LOG(ERROR) << "Can not find the dimension parameter";
-    return StatusCode::kParameterMissing;
+  if (!op) {
+    LOG(ERROR) << "The flatten operator parameter in the layer is null pointer.";
+    return StatusCode::kParseNullOperator;
   }
 
-  if (params.find("start_dim") == params.end()) {
+  const auto& params = op->params;
+  if (params.empty()) {
+    LOG(ERROR) << "The operator parameter in the flatten layer is empty.";
+    return StatusCode::kParseParameterError;
+  }
+
+  if (!op->has_parameter("end_dim")) {
     LOG(ERROR) << "Can not find the dimension parameter";
-    return StatusCode::kParameterMissing;
+    return StatusCode::kParseParameterError;
+  }
+
+  if (!op->has_parameter("start_dim")) {
+    LOG(ERROR) << "Can not find the dimension parameter";
+    return StatusCode::kParseParameterError;
   }
 
   auto start_dim = std::dynamic_pointer_cast<RuntimeParameterInt>(params.at("start_dim"));
-
   auto end_dim = std::dynamic_pointer_cast<RuntimeParameterInt>(params.at("end_dim"));
 
   if (start_dim == nullptr || end_dim == nullptr) {
-    return StatusCode::kParameterMissing;
+    LOG(ERROR) << "The start or end dimension parameter in the flatten layer is empty.";
+    return StatusCode::kParseParameterError;
   }
 
   flatten_layer = std::make_shared<FlattenLayer>(start_dim->value, end_dim->value);
   return StatusCode::kSuccess;
 }
 
-LayerRegistererWrapper kFlattenCreateInstance("torch.flatten", FlattenLayer::CreateInstance);
+LayerRegistererWrapper kFlattenCreateInstance(FlattenLayer::CreateInstance, "torch.flatten");
 
 }  // namespace kuiper_infer
