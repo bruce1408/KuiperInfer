@@ -29,6 +29,9 @@ class ViewLayer : public NonParamLayer {
  public:
   explicit ViewLayer(std::vector<int32_t> shapes);
 
+  StatusCode Check(const std::vector<sftensor>& inputs,
+                   const std::vector<sftensor>& outputs) override;
+
   StatusCode Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                      std::vector<std::shared_ptr<Tensor<float>>>& outputs) override;
 

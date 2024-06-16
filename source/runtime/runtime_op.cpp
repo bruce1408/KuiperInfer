@@ -145,11 +145,9 @@ void RuntimeOperatorUtils<float>::InitOperatorOutput(
           if (prev_runtime_op->output_operands->size() == operand_size) {
             has_found = true;
             const auto& prev_output_operand = prev_runtime_op->output_operands;
-            runtime_op->output_operands = std::make_shared<RuntimeOperand>();
-            runtime_op->output_operands->datas.resize(batch);
-            runtime_op->output_operands->name = prev_output_operand->name + "_output";
-            runtime_op->output_operands->shapes = operand_shapes;
-            runtime_op->output_operands->type = RuntimeDataType::kTypeFloat32;
+            runtime_op->output_operands = std::make_shared<RuntimeOperand>(
+                prev_output_operand->name + "_output", operand_shapes, batch,
+                RuntimeDataType::kTypeFloat32);
             const auto& prev_runtime_op_tensors = prev_output_operand->datas;
             for (uint32_t b = 0; b < batch; ++b) {
               sftensor prev_output_tensor = prev_runtime_op_tensors.at(b);

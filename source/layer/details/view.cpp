@@ -30,28 +30,12 @@ namespace kuiper_infer {
 
 StatusCode ViewLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                               std::vector<std::shared_ptr<Tensor<float>>>& outputs) {
-  if (inputs.empty()) {
-    LOG(ERROR) << "The input tensor array in the view layer is empty";
-    return StatusCode::kInferInputsEmpty;
-  }
-
-  if (outputs.empty()) {
-    LOG(ERROR) << "The output tensor array in the view layer is empty";
-    return StatusCode::kInferOutputsEmpty;
-  }
-
-  if (inputs.size() != outputs.size()) {
-    LOG(ERROR) << "The input and output tensor array size of the view "
-                  "layer do not match";
-    return StatusCode::kInferDimMismatch;
+  StatusCode status_code = Check(inputs, outputs);
+  if (status_code != StatusCode::kSuccess) {
+    return status_code;
   }
 
   const uint32_t batch_size = inputs.size();
-  if (shapes_.empty() || (shapes_.front() != -1 && shapes_.front() != batch_size)) {
-    LOG(ERROR) << "The shape parameter in the view layer has an incorrectly size! ";
-    return StatusCode::kInferParameterError;
-  }
-
   for (uint32_t i = 0; i < batch_size; ++i) {
     const std::shared_ptr<Tensor<float>>& input_data = inputs.at(i);
     CHECK(input_data != nullptr && !input_data->empty())
@@ -74,19 +58,20 @@ StatusCode ViewLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>>&
       }
     }
 
-    CHECK(dynamic_index == -1 || dynamic_index == shapes_.size() - 1)
-        << "-1 appears in the wrong dimension, it can only be on the last "
-           "dimension";
-    if (dynamic_index != -1) {
-      CHECK(total_size >= current_size);
-      shapes.push_back(uint32_t(total_size / current_size));
+    if (dynamic_index != -1 && dynamic_index != shapes_.size() - 1) {
+      LOG(ERROR) << "-1 appears in the wrong dimension, it can only be on the last "
+                    "dimension";
+      return StatusCode::kInferParamError;
+    } else {
+      if (dynamic_index != -1) {
+        CHECK(total_size >= current_size);
+        shapes.push_back(uint32_t(total_size / current_size));
+      }
     }
 
     std::shared_ptr<Tensor<float>> output_data = outputs.at(i);
     output_data = TensorClone(input_data);
-    CHECK(input_data->size() == output_data->size());
     outputs.at(i) = output_data;
-
     output_data->Reshape(shapes, true);
   }
   return StatusCode::kSuccess;
@@ -102,18 +87,18 @@ StatusCode ViewLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& op,
   const auto& params = op->params;
   if (params.empty()) {
     LOG(ERROR) << "The operator parameter in the view layer is empty.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   if (params.find("shape") == params.end()) {
     LOG(ERROR) << "View layer missing shape";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   auto shape = std::dynamic_pointer_cast<RuntimeParameterIntArray>(params.at("shape"));
   if (!shape) {
     LOG(ERROR) << "View layer missing shape";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
   view_layer = std::make_shared<ViewLayer>(shape->value);
   return StatusCode::kSuccess;
@@ -121,6 +106,32 @@ StatusCode ViewLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& op,
 
 ViewLayer::ViewLayer(std::vector<int32_t> shapes)
     : NonParamLayer("view"), shapes_(std::move(shapes)) {}
+
+StatusCode ViewLayer::Check(const std::vector<sftensor>& inputs,
+                            const std::vector<sftensor>& outputs) {
+  if (inputs.empty()) {
+    LOG(ERROR) << "The input tensor array in the view layer is empty";
+    return StatusCode::kInferInputsEmpty;
+  }
+
+  if (outputs.empty()) {
+    LOG(ERROR) << "The output tensor array in the view layer is empty";
+    return StatusCode::kInferOutputsEmpty;
+  }
+
+  if (inputs.size() != outputs.size()) {
+    LOG(ERROR) << "The input and output tensor array size of the view "
+                  "layer do not match";
+    return StatusCode::kInferDimMismatch;
+  }
+
+  const uint32_t batch_size = inputs.size();
+  if (shapes_.empty() || (shapes_.front() != -1 && shapes_.front() != batch_size)) {
+    LOG(ERROR) << "The shape parameter in the view layer has an incorrectly size! ";
+    return StatusCode::kInferParamError;
+  }
+  return StatusCode::kSuccess;
+}
 
 LayerRegistererWrapper kViewCreateInstance(ViewLayer::CreateInstance, "Tensor.view");
 

@@ -29,6 +29,9 @@ class AdaptiveAveragePoolingLayer : public NonParamLayer {
  public:
   explicit AdaptiveAveragePoolingLayer(uint32_t output_h, uint32_t output_w);
 
+  StatusCode Check(const std::vector<sftensor>& inputs,
+                   const std::vector<sftensor>& outputs) override;
+
   StatusCode Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                      std::vector<std::shared_ptr<Tensor<float>>>& outputs) override;
 

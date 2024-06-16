@@ -32,6 +32,9 @@ class CatLayer : public NonParamLayer {
   StatusCode Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                      std::vector<std::shared_ptr<Tensor<float>>>& outputs) override;
 
+  StatusCode Check(const std::vector<sftensor>& inputs,
+                   const std::vector<sftensor>& outputs) override;
+
   static StatusCode CreateInstance(const std::shared_ptr<RuntimeOperator>& op,
                                    std::shared_ptr<Layer<float>>& cat_layer);
 

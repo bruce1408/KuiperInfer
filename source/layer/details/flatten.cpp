@@ -60,12 +60,12 @@ StatusCode FlattenLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>
 
   if (end_dim <= start_dim) {
     LOG(ERROR) << "The end dim must greater than start dim";
-    return StatusCode::kInferParameterError;
+    return StatusCode::kInferParamError;
   }
 
   if (end_dim > 3 || start_dim < 1) {
     LOG(ERROR) << "The end dim must less than two and start dim must greater than zero";
-    return StatusCode::kInferParameterError;
+    return StatusCode::kInferParamError;
   }
 
   const uint32_t batch_size = inputs.size();
@@ -116,17 +116,17 @@ StatusCode FlattenLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& 
   const auto& params = op->params;
   if (params.empty()) {
     LOG(ERROR) << "The operator parameter in the flatten layer is empty.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   if (!op->has_parameter("end_dim")) {
     LOG(ERROR) << "Can not find the dimension parameter";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   if (!op->has_parameter("start_dim")) {
     LOG(ERROR) << "Can not find the dimension parameter";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   auto start_dim = std::dynamic_pointer_cast<RuntimeParameterInt>(params.at("start_dim"));
@@ -134,7 +134,7 @@ StatusCode FlattenLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& 
 
   if (start_dim == nullptr || end_dim == nullptr) {
     LOG(ERROR) << "The start or end dimension parameter in the flatten layer is empty.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   flatten_layer = std::make_shared<FlattenLayer>(start_dim->value, end_dim->value);

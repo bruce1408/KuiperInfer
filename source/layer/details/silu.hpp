@@ -23,9 +23,10 @@
 
 #ifndef KUIPER_INFER_SOURCE_LAYER_DETAILS_SILU_HPP_
 #define KUIPER_INFER_SOURCE_LAYER_DETAILS_SILU_HPP_
+#include "activation.hpp"
 #include "layer/abstract/non_param_layer.hpp"
 namespace kuiper_infer {
-class SiLULayer : public NonParamLayer {
+class SiLULayer : public activation::ActivationLayer {
  public:
   explicit SiLULayer();
 

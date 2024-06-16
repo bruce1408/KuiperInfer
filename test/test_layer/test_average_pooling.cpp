@@ -85,6 +85,8 @@ TEST(test_layer, forward_average_pooling_out1x1) {
   for (uint32_t i = 0; i < input_size; ++i) {
     const auto& output1 = outputs1.at(i);
     const auto& output2 = outputs2.at(i);
+    ASSERT_NE(output1, nullptr);
+    ASSERT_NE(output2, nullptr);
     ASSERT_EQ(output1->channels(), output2->channels());
     ASSERT_EQ(output1->shapes(), output2->shapes());
     uint32_t channels = output1->channels();

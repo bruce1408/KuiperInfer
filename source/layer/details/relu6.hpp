@@ -23,11 +23,13 @@
 
 #ifndef KUIPER_INFER_SOURCE_LAYER_BINOCULAR_RELU6_HPP_
 #define KUIPER_INFER_SOURCE_LAYER_BINOCULAR_RELU6_HPP_
+#include "activation.hpp"
 #include "layer/abstract/non_param_layer.hpp"
 namespace kuiper_infer {
-class Relu6Layer : public NonParamLayer {
+class Relu6Layer : public activation::ActivationLayer  {
  public:
-  Relu6Layer() : NonParamLayer("Relu6") {}
+  explicit Relu6Layer();
+
   StatusCode Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                      std::vector<std::shared_ptr<Tensor<float>>>& outputs) override;
 

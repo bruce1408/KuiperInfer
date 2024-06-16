@@ -25,12 +25,14 @@
 #include "simd.hpp"
 
 namespace kuiper_infer {
-HardSigmoid::HardSigmoid() : NonParamLayer("HardSigmoid") {}
+using namespace activation;
+HardSigmoid::HardSigmoid()
+    : ActivationLayer(ActivationType::kActivationHardSigmoid, "HardSigmoid") {}
 
 StatusCode HardSigmoid::Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                                 std::vector<std::shared_ptr<Tensor<float>>>& outputs) {
   using namespace activation;
-  return ActivationForward(ActivationType::kActivationHardSigmoid, inputs, outputs);
+  return ActivationLayer::Forward(inputs, outputs);
 }
 
 StatusCode HardSigmoid::CreateInstance(const std::shared_ptr<RuntimeOperator>& op,

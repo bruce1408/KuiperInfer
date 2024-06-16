@@ -56,7 +56,7 @@ StatusCode RMSNormLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>
 
   if (weights_.empty() || weights_.front()->empty()) {
     LOG(ERROR) << "The weight for the rmsnorm layer is missing.";
-    return StatusCode::kInferParameterError;
+    return StatusCode::kInferParamError;
   }
 
   std::shared_ptr<Tensor<float>> weight = this->weight(0);

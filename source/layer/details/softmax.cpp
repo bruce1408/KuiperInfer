@@ -236,21 +236,21 @@ StatusCode SoftmaxLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& 
   const auto& params = op->params;
   if (params.empty()) {
     LOG(ERROR) << "The operator parameter in the softmax layer is empty.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   if (params.find("dim") == params.end()) {
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   auto dim_param = params.at("dim");
   if (dim_param == nullptr) {
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   auto dim = std::dynamic_pointer_cast<RuntimeParameterInt>(dim_param);
   if (dim == nullptr) {
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
   softmax_layer = std::make_shared<SoftmaxLayer>(dim->value);  // 创建softmax层
   return StatusCode::kSuccess;

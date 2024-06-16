@@ -47,6 +47,12 @@ struct RuntimeOperandBase {
                               std::vector<std::shared_ptr<Tensor<T>>> datas, RuntimeDataType type)
       : name(std::move(name)), shapes(std::move(shapes)), datas(std::move(datas)), type(type) {}
 
+  explicit RuntimeOperandBase(std::string name, std::vector<int32_t> shapes, uint32_t data_size,
+                              RuntimeDataType type)
+      : name(std::move(name)), shapes(std::move(shapes)), type(type) {
+    datas.resize(data_size);
+  }
+
   size_t size() const;
 
   /// Name of the operand

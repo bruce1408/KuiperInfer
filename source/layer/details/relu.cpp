@@ -22,13 +22,14 @@
 // Created by fss on 22-11-18.
 #include "relu.hpp"
 #include "layer/abstract/layer_factory.hpp"
-#include "simd.hpp"
 
 namespace kuiper_infer {
+using namespace activation;
+ReluLayer::ReluLayer() : ActivationLayer(ActivationType::kActivationRelu, "nn.ReLU") {}
+
 StatusCode ReluLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                               std::vector<std::shared_ptr<Tensor<float>>>& outputs) {
-  using namespace activation;
-  return ActivationForward(ActivationType::kActivationRelu, inputs, outputs);
+  return ActivationLayer::Forward(inputs, outputs);
 }
 
 StatusCode ReluLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& op,

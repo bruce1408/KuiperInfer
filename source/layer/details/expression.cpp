@@ -129,21 +129,21 @@ StatusCode ExpressionLayer::CreateInstance(const std::shared_ptr<RuntimeOperator
   const auto& params = op->params;
   if (params.empty()) {
     LOG(ERROR) << "The operator parameter in the expression layer is empty.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   if (params.find("expr") == params.end()) {
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   auto statement_param = std::dynamic_pointer_cast<RuntimeParameterString>(params.at("expr"));
   if (statement_param == nullptr) {
     LOG(ERROR) << "Can not find the expression parameter";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
   if (statement_param->type != RuntimeParameterType::kParameterString) {
     LOG(ERROR) << "Can not find the expression parameter";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   expression_layer = std::make_shared<ExpressionLayer>(statement_param->value);

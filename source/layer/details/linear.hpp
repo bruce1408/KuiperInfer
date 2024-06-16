@@ -33,11 +33,18 @@ class LinearLayer : public ParamLayer {
   //  bool use_bias = true);
   explicit LinearLayer(int32_t in_features, int32_t out_features, bool use_bias);
 
+  StatusCode Check(const std::vector<sftensor>& inputs,
+                   const std::vector<sftensor>& outputs) override;
+
   StatusCode Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                      std::vector<std::shared_ptr<Tensor<float>>>& outputs) override;
 
   static StatusCode CreateInstance(const std::shared_ptr<RuntimeOperator>& op,
                                    std::shared_ptr<Layer<float>>& linear_layer);
+
+  void set_weights(const std::vector<float>& weights) override;
+
+  void set_weights(const std::vector<std::shared_ptr<Tensor<float>>>& weights) override;
 
  private:
   int32_t in_features_ = 0;

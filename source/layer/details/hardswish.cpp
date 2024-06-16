@@ -25,12 +25,14 @@
 #include "simd.hpp"
 
 namespace kuiper_infer {
-HardSwishLayer::HardSwishLayer() : NonParamLayer("HardSwish") {}
+using namespace activation;
+HardSwishLayer::HardSwishLayer()
+    : ActivationLayer(ActivationType::kActivationHardSwish, "HardSwish") {}
 
 StatusCode HardSwishLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                                    std::vector<std::shared_ptr<Tensor<float>>>& outputs) {
   using namespace activation;
-  return ActivationForward(ActivationType::kActivationHardSwish, inputs, outputs);
+  return ActivationLayer::Forward(inputs, outputs);
 }
 
 StatusCode HardSwishLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& op,

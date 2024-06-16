@@ -35,36 +35,15 @@ AdaptiveAveragePoolingLayer::AdaptiveAveragePoolingLayer(uint32_t output_h, uint
 StatusCode AdaptiveAveragePoolingLayer::Forward(
     const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
     std::vector<std::shared_ptr<Tensor<float>>>& outputs) {
-  if (inputs.empty()) {
-    LOG(ERROR) << "The input tensor array in the adaptive pooling layer is empty";
-    return StatusCode::kInferInputsEmpty;
-  }
-
-  if (outputs.empty()) {
-    LOG(ERROR) << "The output tensor array in the adaptive pooling layer is empty";
-    return StatusCode::kInferOutputsEmpty;
-  }
-
-  if (inputs.size() != outputs.size()) {
-    LOG(ERROR) << "The input and output tensor array size of the adaptive "
-                  "pooling layer do not match";
-    return StatusCode::kInferDimMismatch;
-  }
-
-  if (!output_h_ || !output_w_) {
-    LOG(ERROR) << "The output_h and output_w in the adaptive pooling layer should be "
-                  "greater than zero";
-    return StatusCode::kInferParameterError;
+  StatusCode status_code = Check(inputs, outputs);
+  if (status_code != StatusCode::kSuccess) {
+    return status_code;
   }
 
   const uint32_t batch = inputs.size();
 #pragma omp parallel for num_threads(batch)
   for (uint32_t i = 0; i < batch; ++i) {
     const std::shared_ptr<Tensor<float>>& input_data = inputs.at(i);
-    CHECK(input_data != nullptr && !input_data->empty())
-        << "The input tensor array in the adaptive pooling layer has an empty "
-           "tensor "
-        << i << "th";
 
     const uint32_t input_h = input_data->rows();
     const uint32_t input_w = input_data->cols();
@@ -129,23 +108,57 @@ StatusCode AdaptiveAveragePoolingLayer::CreateInstance(const std::shared_ptr<Run
   const auto& params = op->params;
   if (params.empty()) {
     LOG(ERROR) << "The operator parameter in the adaptive pooling layer is empty.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   auto output_size_param =
       std::dynamic_pointer_cast<RuntimeParameterIntArray>(params.at("output_size"));
   if (!output_size_param) {
     LOG(ERROR) << "Can not find the output size parameter in the parameter list.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   const auto& output_size_arr = output_size_param->value;
   if (output_size_arr.size() != 2) {
     LOG(ERROR) << "The dimension of the output size parameter should be 2.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
   avg_layer =
       std::make_shared<AdaptiveAveragePoolingLayer>(output_size_arr.at(0), output_size_arr.at(1));
+  return StatusCode::kSuccess;
+}
+
+StatusCode AdaptiveAveragePoolingLayer::Check(const std::vector<sftensor>& inputs,
+                                              const std::vector<sftensor>& outputs) {
+  if (inputs.empty()) {
+    LOG(ERROR) << "The input tensor array in the adaptive pooling layer is empty";
+    return StatusCode::kInferInputsEmpty;
+  }
+
+  if (outputs.empty()) {
+    LOG(ERROR) << "The output tensor array in the adaptive pooling layer is empty";
+    return StatusCode::kInferOutputsEmpty;
+  }
+
+  if (inputs.size() != outputs.size()) {
+    LOG(ERROR) << "The input and output tensor array size of the adaptive "
+                  "pooling layer do not match";
+    return StatusCode::kInferDimMismatch;
+  }
+
+  for (const auto& input_data : inputs) {
+    if (input_data == nullptr || input_data->empty()) {
+      LOG(ERROR) << "The input tensor array in the adaptive pooling layer has an empty "
+                    "tensor ";
+      return StatusCode::kInferInputsEmpty;
+    }
+  }
+
+  if (!output_h_ || !output_w_) {
+    LOG(ERROR) << "The output_h and output_w in the adaptive pooling layer should be "
+                  "greater than zero";
+    return StatusCode::kInferParamError;
+  }
   return StatusCode::kSuccess;
 }
 

@@ -25,10 +25,10 @@
 #include "simd.hpp"
 
 namespace kuiper_infer {
+using namespace activation;
 StatusCode Relu6Layer::Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                                std::vector<std::shared_ptr<Tensor<float>>>& outputs) {
-  using namespace activation;
-  return ActivationForward(ActivationType::kActivationRelu6, inputs, outputs);
+  return ActivationLayer::Forward(inputs, outputs);
 }
 StatusCode Relu6Layer::CreateInstance(const std::shared_ptr<RuntimeOperator>& op,
                                       std::shared_ptr<Layer<float>>& relu_layer) {
@@ -40,6 +40,8 @@ StatusCode Relu6Layer::CreateInstance(const std::shared_ptr<RuntimeOperator>& op
   relu_layer = std::make_shared<Relu6Layer>();
   return StatusCode::kSuccess;
 }
+
+Relu6Layer::Relu6Layer() : ActivationLayer(ActivationType::kActivationRelu6, "nn.ReLU6") {}
 
 LayerRegistererWrapper kRelu6CreateInstance(Relu6Layer::CreateInstance, "nn.ReLU6");
 }  // namespace kuiper_infer

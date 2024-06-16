@@ -632,6 +632,15 @@ TEST(test_tensor, raw_view2) {
   ASSERT_EQ(shapes.at(1), 6);
 }
 
+TEST(test_tensor, raw_view11) {
+  using namespace kuiper_infer;
+  Tensor<float> f3(122, 553, 444);
+  f3.Reshape({444, 553, 122}, true);
+  const auto& shapes = f3.raw_shapes();
+  ASSERT_EQ(shapes.size(), 3);
+  ASSERT_EQ(shapes.at(0), 444);
+}
+
 TEST(test_tensor, raw_view3) {
   using namespace kuiper_infer;
   Tensor<float> f3(2, 3, 4);

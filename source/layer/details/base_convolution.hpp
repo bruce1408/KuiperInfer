@@ -58,6 +58,10 @@ class BaseConvolutionLayer : public ParamLayer {
                                                           uint32_t kernel_h,
                                                           uint32_t kernel_w) const = 0;
 
+ public:
+  StatusCode Check(const std::vector<sftensor>& inputs, const std::vector<sftensor>& outputs);
+
+ private:
   virtual void InitIm2ColWeight();
 
  protected:

@@ -23,11 +23,13 @@
 
 #ifndef KUIPER_INFER_SOURCE_LAYER_SIGMOID_HPP_
 #define KUIPER_INFER_SOURCE_LAYER_SIGMOID_HPP_
+#include "activation.hpp"
 #include "layer/abstract/non_param_layer.hpp"
 namespace kuiper_infer {
-class SigmoidLayer : public NonParamLayer {
+class SigmoidLayer : public activation::ActivationLayer {
  public:
-  explicit SigmoidLayer() : NonParamLayer("Sigmoid") {}
+  explicit SigmoidLayer();
+
   StatusCode Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                      std::vector<std::shared_ptr<Tensor<float>>>& outputs) override;
 

@@ -85,7 +85,15 @@ StatusCode Layer<float>::Forward() {
 
   StatusCode status =
       runtime_operator->layer->Forward(layer_input_datas, output_operand_datas->datas);
+  if (status != StatusCode::kSuccess) {
+    LOG(ERROR) << "Forward the layer " << runtime_operator->name << " get a error status";
+  }
   return status;
+}
+
+StatusCode Layer<float>::Check(const std::vector<sftensor>& inputs,
+                               const std::vector<sftensor>& outputs) {
+  return StatusCode::kFunctionNotImplement;
 }
 
 void Layer<float>::set_runtime_operator(const std::shared_ptr<RuntimeOperator>& runtime_operator) {

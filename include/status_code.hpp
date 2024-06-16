@@ -43,12 +43,12 @@ enum class StatusCode {
 
   kInferInputsEmpty = 1,
   kInferOutputsEmpty = 2,
-  kInferParameterError = 3,
+  kInferParamError = 3,
   kInferDimMismatch = 4,
 
   kFunctionNotImplement = 5,
   kParseWeightError = 6,
-  kParseParameterError = 7,
+  kParseParamError = 7,
   kParseNullOperator = 8,
 };
 

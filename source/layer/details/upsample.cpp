@@ -206,28 +206,28 @@ StatusCode UpSampleLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>&
   const auto& params = op->params;
   if (params.empty()) {
     LOG(ERROR) << "The operator parameter in the upsample layer is empty.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   if (params.find("scale_factor") == params.end()) {
     LOG(ERROR) << "Can not find the scale factor parameter";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   auto scales = std::dynamic_pointer_cast<RuntimeParameterFloatArray>(params.at("scale_factor"));
   if (scales == nullptr) {
     LOG(ERROR) << "Can not find the scale factor parameter";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   if (scales->value.size() != 2) {
     LOG(ERROR) << "Scale factor need two dimension";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   if (params.find("mode") == params.end()) {
     LOG(ERROR) << "Can not find the mode parameter";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   UpSampleMode mode;
@@ -238,7 +238,7 @@ StatusCode UpSampleLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>&
     mode = UpSampleMode::kModeBilinear;
   } else {
     LOG(ERROR) << "The mode " << mode_param->value << " is not supported!";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   bool is_align_corner = false;
@@ -246,7 +246,7 @@ StatusCode UpSampleLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>&
     auto align_corner_param =
         std::dynamic_pointer_cast<RuntimeParameterBool>(params.at("align_corners"));
     if (!align_corner_param) {
-      return StatusCode::kParseParameterError;
+      return StatusCode::kParseParamError;
     }
     is_align_corner = align_corner_param->value;
   }
@@ -256,7 +256,7 @@ StatusCode UpSampleLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>&
   // scale放大的倍数大于0
   if (scale_h <= 0 || scale_w <= 0) {
     LOG(ERROR) << "The parameter scale height and scale width should be greater than zero.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   upsample_layer = std::make_shared<UpSampleLayer>(scale_h, scale_w, mode, is_align_corner);

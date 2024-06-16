@@ -52,6 +52,9 @@ class Layer<float> {
  public:
   explicit Layer(std::string layer_name) : layer_name_(std::move(layer_name)) {}
 
+  virtual StatusCode Check(const std::vector<sftensor>& inputs,
+                           const std::vector<sftensor>& outputs);
+
   /**
    * @brief Performs forward inference
    *

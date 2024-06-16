@@ -24,10 +24,10 @@
 #ifndef KUIPER_INFER_SOURCE_LAYER_DETAILS_HARDSWISH_HPP_
 #define KUIPER_INFER_SOURCE_LAYER_DETAILS_HARDSWISH_HPP_
 #include "layer/abstract/non_param_layer.hpp"
-
+#include "activation.hpp"
 #endif  // KUIPER_INFER_SOURCE_LAYER_DETAILS_HARDSWISH_HPP_
 namespace kuiper_infer {
-class HardSwishLayer : public NonParamLayer {
+class HardSwishLayer : public activation::ActivationLayer {
  public:
   explicit HardSwishLayer();
 

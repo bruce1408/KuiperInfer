@@ -34,54 +34,42 @@ LinearLayer::LinearLayer(int32_t in_features, int32_t out_features, bool use_bia
       out_features_(out_features) {
   CHECK_GT(in_features_, 0);
   CHECK_GT(out_features_, 0);
-  this->InitWeightParam(1, 1, out_features, in_features);
+  this->InitWeightParam(1, 1, in_features_, out_features_);
   if (use_bias) {
     this->InitBiasParam(1, 1, 1, out_features);
   }
 }
 
+void LinearLayer::set_weights(const std::vector<float>& weights) {
+  const size_t elem_size = weights.size();
+  const uint32_t batch_size = this->weights_.size();
+  CHECK_EQ(weights.size(), in_features_ * out_features_);
+  CHECK_EQ(elem_size % batch_size, 0);
+
+  const uint32_t blob_size = elem_size / batch_size;
+  for (uint32_t idx = 0; idx < batch_size; ++idx) {
+    const uint32_t start_offset = idx * blob_size;
+    const uint32_t end_offset = start_offset + blob_size;
+    const auto& sub_values =
+        std::vector<float>{weights.begin() + start_offset, weights.begin() + end_offset};
+    this->weights_.at(idx)->Fill(sub_values, false);
+  }
+}
+
+void LinearLayer::set_weights(const std::vector<std::shared_ptr<Tensor<float>>>& weights) {
+  return ParamLayer::set_weights(weights);
+}
+
 StatusCode LinearLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>>& inputs,
                                 std::vector<std::shared_ptr<Tensor<float>>>& outputs) {
-  if (inputs.empty()) {
-    LOG(ERROR) << "The input tensor array in the linear layer is empty";
-    return StatusCode::kInferInputsEmpty;
-  }
-
-  if (outputs.empty()) {
-    LOG(ERROR) << "The output tensor array in the linear layer is empty";
-    return StatusCode::kInferOutputsEmpty;
-  }
-
-  if (inputs.size() != outputs.size()) {
-    LOG(ERROR) << "The input and output tensor array size of the linear "
-                  "layer do not match";
-    return StatusCode::kInferDimMismatch;
-  }
-
-  if (this->weights_.empty()) {
-    LOG(ERROR) << "The weight tensor in the linear layer is empty";
-    return StatusCode::kInferParameterError;
-  } else {
-    if (this->use_bias_ && this->weights_.size() != this->bias_.size()) {
-      LOG(ERROR) << "The size of the weight and bias tensor do not match";
-      return StatusCode::kInferParameterError;
-    }
-  }
-
-  if (weights_.size() != 1) {
-    LOG(ERROR) << "Need one weight tensor in the linear layer";
-    return StatusCode::kInferParameterError;
-  }
-
-  if (use_bias_ && this->bias_.size() != 1) {
-    LOG(ERROR) << "Need one bias tensor in the linear layer";
-    return StatusCode::kInferParameterError;
+  StatusCode check_status = Check(inputs, outputs);
+  if (check_status != StatusCode::kSuccess) {
+    return check_status;
   }
 
   uint32_t batch = inputs.size();
   const std::shared_ptr<Tensor<float>>& weight = weights_.front();
-  arma::fmat weight_data(weight->raw_ptr(), out_features_, in_features_, false, true);
-  const arma::fmat& weight_data_t = weight_data.t();
+  arma::fmat weight_data_t(weight->raw_ptr(), in_features_, out_features_, false, true);
 
 #pragma omp parallel for num_threads(batch)
   for (uint32_t i = 0; i < batch; ++i) {
@@ -92,9 +80,9 @@ StatusCode LinearLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>
 
     const uint32_t feature_dims = input_shapes.at(1);
     const uint32_t in_features = input_shapes.at(2);
-    CHECK(weight_data.n_rows == out_features_)
+    CHECK(weight_data_t.n_cols == out_features_)
         << "The row of weight tensor should be same to output features.";
-    CHECK(weight_data.n_cols == in_features && in_features == in_features_)
+    CHECK(weight_data_t.n_rows == in_features && in_features == in_features_)
         << "The col of weight tensor should be same to input features.";
 
     arma::fmat input_vec(input->raw_ptr(), feature_dims, in_features_, false, true);
@@ -141,17 +129,17 @@ StatusCode LinearLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& o
   const auto& params = op->params;
   if (params.empty()) {
     LOG(ERROR) << "The operator parameter in the linear layer is empty.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   if (!op->has_parameter("bias")) {
     LOG(ERROR) << "Can not find the use bias parameter in the parameter list.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
   auto use_bias_param = std::dynamic_pointer_cast<RuntimeParameterBool>(params.at("bias"));
   if (use_bias_param == nullptr) {
     LOG(ERROR) << "Can not find the use bias parameter in the parameter list.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   const auto& attr = op->attribute;
@@ -191,6 +179,46 @@ StatusCode LinearLayer::CreateInstance(const std::shared_ptr<RuntimeOperator>& o
 
   // load weights
   linear_layer->set_weights(weight->get<float>());
+  return StatusCode::kSuccess;
+}
+
+StatusCode LinearLayer::Check(const std::vector<sftensor>& inputs,
+                              const std::vector<sftensor>& outputs) {
+  if (inputs.empty()) {
+    LOG(ERROR) << "The input tensor array in the linear layer is empty";
+    return StatusCode::kInferInputsEmpty;
+  }
+
+  if (outputs.empty()) {
+    LOG(ERROR) << "The output tensor array in the linear layer is empty";
+    return StatusCode::kInferOutputsEmpty;
+  }
+
+  if (inputs.size() != outputs.size()) {
+    LOG(ERROR) << "The input and output tensor array size of the linear "
+                  "layer do not match";
+    return StatusCode::kInferDimMismatch;
+  }
+
+  if (this->weights_.empty()) {
+    LOG(ERROR) << "The weight tensor in the linear layer is empty";
+    return StatusCode::kInferParamError;
+  } else {
+    if (this->use_bias_ && this->weights_.size() != this->bias_.size()) {
+      LOG(ERROR) << "The size of the weight and bias tensor do not match";
+      return StatusCode::kInferParamError;
+    }
+  }
+
+  if (weights_.size() != 1) {
+    LOG(ERROR) << "Need one weight tensor in the linear layer";
+    return StatusCode::kInferParamError;
+  }
+
+  if (use_bias_ && this->bias_.size() != 1) {
+    LOG(ERROR) << "Need one bias tensor in the linear layer";
+    return StatusCode::kInferParamError;
+  }
   return StatusCode::kSuccess;
 }
 

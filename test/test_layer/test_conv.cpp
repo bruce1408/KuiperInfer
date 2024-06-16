@@ -41,7 +41,7 @@ StatusCode Convolution(const std::vector<std::shared_ptr<Tensor<float>>>& inputs
   }
   if (weights_.empty()) {
     LOG(ERROR) << "Weight parameters is empty";
-    return StatusCode::kInferParameterError;
+    return StatusCode::kInferParamError;
   }
 
   const uint32_t batch_size = inputs.size();
@@ -67,7 +67,7 @@ StatusCode Convolution(const std::vector<std::shared_ptr<Tensor<float>>>& inputs
       uint32_t output_w = uint32_t(std::floor((input_w - kernel_w) / stride_w_ + 1));
       if (output_h <= 0 || output_w <= 0) {
         LOG(ERROR) << "The size of the output feature map is less than zero";
-        return StatusCode::kInferParameterError;
+        return StatusCode::kInferParamError;
       }
 
       if (!output_data) {
@@ -77,7 +77,7 @@ StatusCode Convolution(const std::vector<std::shared_ptr<Tensor<float>>>& inputs
 
       if (kernel->channels() != input_c) {
         LOG(ERROR) << "The channel of the weight and input is not adapting";
-        return StatusCode::kInferParameterError;
+        return StatusCode::kInferParamError;
       }
       arma::fmat& output_channel = output_data->slice(k);
       for (uint32_t ic = 0; ic < input_c; ++ic) {

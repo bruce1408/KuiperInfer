@@ -49,19 +49,19 @@ StatusCode BatchNorm2dLayer::Forward(const std::vector<std::shared_ptr<Tensor<fl
   if (mean_value_size != bias_value_size) {
     LOG(ERROR) << "The batchnorm2d layer do not have the same number of mean "
                   "values and bias values";
-    return StatusCode::kInferParameterError;
+    return StatusCode::kInferParamError;
   }
 
   if (this->affine_weight_.size() != this->weights().size()) {
     LOG(ERROR) << "The batchnorm2d layer do not have the same number of mean "
                   "values and affine weight";
-    return StatusCode::kInferParameterError;
+    return StatusCode::kInferParamError;
   }
 
   if (this->affine_bias_.size() != this->affine_weight_.size()) {
     LOG(ERROR) << "The batchnorm2d layer do not have the same number of affine "
                   "weight and affine bias";
-    return StatusCode::kInferParameterError;
+    return StatusCode::kInferParamError;
   }
   const uint32_t batch_size = inputs.size();
 #pragma omp parallel for num_threads(batch_size)
@@ -107,29 +107,29 @@ StatusCode BatchNorm2dLayer::CreateInstance(const std::shared_ptr<RuntimeOperato
   const auto& params = op->params;
   if (params.empty()) {
     LOG(ERROR) << "The operator parameter in the batchnorm layer is empty.";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   if (params.find("eps") == params.end()) {
     LOG(ERROR) << "Can not find the eps parameter";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   auto eps = std::dynamic_pointer_cast<RuntimeParameterFloat>(params.at("eps"));
   if (!eps) {
     LOG(ERROR) << "Can not find the eps parameter";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   if (params.find("num_features") == params.end()) {
     LOG(ERROR) << "Can not find the num features parameter";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   auto num_features = std::dynamic_pointer_cast<RuntimeParameterInt>(params.at("num_features"));
   if (!num_features) {
     LOG(ERROR) << "Can not find the num features parameter";
-    return StatusCode::kParseParameterError;
+    return StatusCode::kParseParamError;
   }
 
   // load weights
