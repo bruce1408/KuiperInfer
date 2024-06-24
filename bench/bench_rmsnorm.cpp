@@ -5,7 +5,6 @@
 //
 // Created by fss on 24-2-15.
 //
-#include "../demos/llama2/llama_chat.hpp"
 #include "../source/layer/details/rms_norm.hpp"
 #include "data/tensor.hpp"
 

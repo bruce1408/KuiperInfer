@@ -1,5 +1,8 @@
 
 # KuiperInfer (自制深度学习推理框架)
+**🙋🙋🙋 全新课程，本项目的进阶版-自制大模型推理框架，火热进行中，请加下方微信了解**。
+
+<img src="imgs/me.jpg" width="30%" height="30%">
 
 ![](https://github.com/zjhellofss/kuiperinfer/actions/workflows/cmake.yml/badge.svg)
 
@@ -39,14 +42,6 @@
 | **第七讲** 表达式层中词法分析和语法分析以及算子的实现 | 完成  | https://www.bilibili.com/video/BV1j8411o7ao |
 | **第八讲** 自制推理框架支持Resnet网络的推理           | 完成  | https://www.bilibili.com/video/BV1o84y1o7ni |
 | **第九讲** 自制推理框架支持YoloV5网络的推理           | 完成  |    https://www.bilibili.com/video/BV1Qk4y1A7XL                                        |
-
-## 交流方式
-**如果要联系作者本人，请加微信**
-
-<img src="imgs/me.jpg" width="30%" height="30%">
-
-## 知乎专栏（更新中）
-<a href="https://www.zhihu.com/column/c_1682405983161356288"> <img src="https://is1-ssl.mzstatic.com/image/thumb/Purple116/v4/8c/ec/b0/8cecb054-1279-1b92-668b-46e371b9f65f/AppIcon-0-0-1x_U007emarketing-0-0-0-6-0-0-sRGB-0-0-0-GLES2_U002c0-512MB-85-220-0-0.png/1200x630wa.png" height="200" width="400" /> </a>
 
 ## Demo效果
 

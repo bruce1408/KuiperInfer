@@ -1,3 +1,7 @@
 [submodule "tmp"]
 	path = tmp
 	url = https://github.com/zjhellofss/model_zoo.git
+
+[submodule "demos/kuiper_llama"]
+	path = demos/kuiper_llama
+	url = https://github.com/zjhellofss/KuiperLLama.git
