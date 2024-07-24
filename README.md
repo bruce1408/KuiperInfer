@@ -4,7 +4,7 @@
 
 > 带你从零写一个支持LLama推理，支持Cuda加速的大模型框架
 
-<img src="imgs/me.jpg" width="30%" height="30%">
+<img src="imgs/qa.jpg" width="30%" height="30%">
 
 ![](https://github.com/zjhellofss/kuiperinfer/actions/workflows/cmake.yml/badge.svg)
 
