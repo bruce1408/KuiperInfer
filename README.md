@@ -2,7 +2,46 @@
 # KuiperInfer (自制深度学习推理框架)
 **我们在本项目的基础上开设了一个全新的课程，《从零自制大模型推理框架》，以下是目录，感兴趣的同学可以扫描二维码了解，欢迎大家参加。**
 
-<img src="imgs/qa.jpg" width="30%" height="30%">
+![](imgs/me.jpg)
+## 《动手自制大模型推理框架》常见问题
+
+1. **课程更新完了吗？**
+
+主体已经更新完毕，完全可以开始自习。支持cuda, int8推理。
+
+2. **这是收费课程吗？怎么收费，怎么付款，过段时间买可以吗？**
+
+收费课程，178，微信转账。可以，但是我微信好友快满了，隔一段时间会清理，而且不定期会涨价。
+
+3. **为什么b站会贵一点，内容都一样吗？**
+
+b站要抽成，内容都一样
+
+4. **怎么看课**
+
+飞书网盘，打开浏览器就可以看
+
+5. **有答疑吗**
+
+有的，且有答疑群，群友也很热情。
+
+6. **不会cpp可以学吗？**
+
+事在人为，我也尽量深入浅出教学
+
+7. **课程目录有吗**
+
+见下文
+
+9. **作者是干嘛的？**
+
+主业就是开发大模型推理框架的，课件已经被人民邮电出版社约稿，同时也是kuiperinfer项目，也就是本项目的发起人，目前全github cpp项目排名120位。
+
+**《动手自制大模型推理框架》项目运行效果fp32模型1.1b参数。**
+![](./imgs/do.gif)
+
+KuipeInfer目前2.3k star，帮助很多人获得了大厂岗位。
+## 《动手自制大模型推理框架》课程目录
 
 **一、项目整体架构和设计**
 
@@ -185,19 +224,19 @@
 ## 安装过程(使用Docker)
 1. docker pull registry.cn-hangzhou.aliyuncs.com/hellofss/kuiperinfer:latest
 2. sudo docker run -t -i registry.cn-hangzhou.aliyuncs.com/hellofss/kuiperinfer:latest /bin/bash
-3. cd code 
-4. git clone --recursive https://github.com/zjhellofss/KuiperInfer.git 
+3. cd code
+4. git clone --recursive https://github.com/zjhellofss/KuiperInfer.git
 5. cd KuiperInfer
 6. **git checkout -b 你的新分支 study_version_0.02 (如果想抄本项目的代码，请使用这一步切换到study tag)**
-7. mkdir build 
-8. cd build 
-9. cmake -DCMAKE_BUILD_TYPE=Release -DDEVELOPMENT=OFF .. 
+7. mkdir build
+8. cd build
+9. cmake -DCMAKE_BUILD_TYPE=Release -DDEVELOPMENT=OFF ..
 10. make -j$(nproc)
 
 **Tips:**
 
 1. **如果需要对KuiperInfer进行开发**，请使用 git clone  --recursive https://github.com/zjhellofss/KuiperInfer.git 同时下载子文件夹tmp, 并在cmake文件中设置`$DEVELOPMENT`或者指定`-DDEVELOPMENT=ON`
-2. **如果国内网速卡顿**，请使用 git clone https://gitee.com/fssssss/KuiperInferGitee.git 
+2. **如果国内网速卡顿**，请使用 git clone https://gitee.com/fssssss/KuiperInferGitee.git
 3. **如果想获得更快地运行体验**，请在本机重新编译openblas或apt install intel-mkl
 
 ## 安装过程(构建Docker镜像)
@@ -247,7 +286,7 @@ const std::string& bin_path = "tmp/yolo/demo/yolov5s_batch8.pnnx.bin";
 
 - `image_path`指定图像目录，`param_path`为模型的参数文件，`bin_path`为模型的权重文件，请替换为自己本地的路径。
 
-- 模型定义和权重下载地址如下： https://cowtransfer.com/s/9bc43e0905cb40 
+- 模型定义和权重下载地址如下： https://cowtransfer.com/s/9bc43e0905cb40
 
 - 编译完成后，在项目目录调用 `./build/demos/yolo_test`
 
@@ -255,17 +294,17 @@ const std::string& bin_path = "tmp/yolo/demo/yolov5s_batch8.pnnx.bin";
 ## 已经支持的算子
 **总体理念：逐步优化已经有的算子；有需要的时候再对未实现的算子进行开发**
 
-- Convolution 
-- AdaptivePooling 
-- MaxPooling 
+- Convolution
+- AdaptivePooling
+- MaxPooling
 - Expression(抽象语法树)
 - Flatten, View(维度展平和变形)
-- Sigmoid 
-- HardSigmoid 
-- HardSwish 
+- Sigmoid
+- HardSigmoid
+- HardSwish
 - ReLU
 - Linear(矩阵相乘)
-- Softmax 
+- Softmax
 - BatchNorm
 - Upsample
 - SiLU
