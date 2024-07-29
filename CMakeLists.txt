@@ -30,7 +30,7 @@ if (BUILD_DEMO)
     add_subdirectory(demos)
 endif ()
 
-find_package(benchmark REQUIRED)
+#find_package(benchmark REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(Armadillo REQUIRED)
 find_package(glog REQUIRED)
@@ -68,11 +68,12 @@ target_include_directories(kuiper PUBLIC ${Armadillo_INCLUDE_DIR})
 # mathfun library defines
 add_compile_definitions(SSE_MATHFUN_WITH_CODE USE_SSE_AUTO)
 # 本项目的开发者请使用set(DEVELOPMENT ON)或者在cmake中添加-DDEVELOPMENT=ON将选项打开
-option(DEVELOPMENT ON)
-if (${DEVELOPMENT})
-    message(STATUS "DEVELOPMENT MODE ON")
-    enable_testing()
-    add_subdirectory(bench)
-    add_subdirectory(test)
-endif ()
+#option(DEVELOPMENT ON)
+#if (${DEVELOPMENT})
+#    message(STATUS "DEVELOPMENT MODE ON")
+#    enable_testing()
+#    add_subdirectory(bench)
+#    add_subdirectory(test)
+
+#endif ()
 
