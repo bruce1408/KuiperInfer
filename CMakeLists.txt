@@ -30,7 +30,7 @@ if (BUILD_DEMO)
     add_subdirectory(demos)
 endif ()
 
-#find_package(benchmark REQUIRED)
+find_package(benchmark REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(Armadillo REQUIRED)
 find_package(glog REQUIRED)
