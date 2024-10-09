@@ -74,5 +74,6 @@ if (${DEVELOPMENT})
     enable_testing()
     add_subdirectory(bench)
     add_subdirectory(test)
+
 endif ()
 
