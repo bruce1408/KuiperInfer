@@ -5,3 +5,6 @@
 [submodule "demos/kuiper_llama"]
 	path = demos/kuiper_llama
 	url = https://github.com/zjhellofss/KuiperLLama.git
+[submodule "practise"]
+	path = practise
+	url = git@github.com:bruce1408/kuiperdatawhale.git
